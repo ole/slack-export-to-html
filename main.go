@@ -396,6 +396,7 @@ func processChannelMessage(out *os.File, msg *gabs.Container) (err error) {
 					out.WriteString("'>" + name + "</a>")
 					out.WriteString("</video>")
 				default:
+					out.WriteString("<em>Attached file:</em> ")
 					out.WriteString("<a href='")
 					out.WriteString(url)
 					out.WriteString("'>" + name + "</a>")
