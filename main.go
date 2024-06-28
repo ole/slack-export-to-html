@@ -298,9 +298,11 @@ func processChannelMessage(out *os.File, msg *gabs.Container) (err error) {
 	if attachments != nil {
 		for _, ele := range attachments.Children() {
 			fmt.Printf("attachment: %s\n", ele.String())
-			out.WriteString("<a href='")
-			out.WriteString(ele.Search("from_url").Data().(string))
-			out.WriteString("'>")
+			if ele.Search("from_url") != nil {
+				out.WriteString("<a href='")
+				out.WriteString(ele.Search("from_url").Data().(string))
+				out.WriteString("'>")
+			}
 			if ele.Search("image_url") != nil {
 				out.WriteString("<img src='")
 				out.WriteString(ele.Search("image_url").Data().(string))
