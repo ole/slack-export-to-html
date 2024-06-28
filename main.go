@@ -176,16 +176,24 @@ func formatUsername(userId string) (name string) {
 }
 
 /// Recursively process a message's elements array.
-func processElements(out *os.File, elementsArray *gabs.Container) (err error) {
+func processElements(out *os.File, elementsArray *gabs.Container, insertLineBreaks bool) (err error) {
 	for _, ele := range elementsArray.Children() {
 		//fmt.Printf("ele: %s\n", ele.String())
 
+		eleType := ele.Search("type").Data().(string)
 		childElements := ele.Search("elements")
 		if childElements != nil {
 			// Recurse down
-			processElements(out, childElements)
+			var insertLineBreaksCopy = insertLineBreaks
+			if eleType == "rich_text_preformatted" {
+				out.WriteString("<pre><code>\n")
+				insertLineBreaksCopy = false
+			}
+			processElements(out, childElements, insertLineBreaksCopy)
+			if eleType == "rich_text_preformatted" {
+				out.WriteString("</pre></code>\n")
+			}
 		} else {
-			eleType := ele.Search("type").Data().(string)
 			switch eleType {
 			case "channel": // ignore
 				out.WriteString("<span class='msgText'>")
@@ -196,7 +204,12 @@ func processElements(out *os.File, elementsArray *gabs.Container) (err error) {
 			case "text":
 				out.WriteString("<span class='msgText'>")
 				txt := ele.Search("text").Data().(string)
-				txt = strings.ReplaceAll(txt, "\n", "<br/>\n")
+				txt = strings.ReplaceAll(txt, "&", "&amp;")
+				txt = strings.ReplaceAll(txt, "<", "&lt;")
+				txt = strings.ReplaceAll(txt, ">", "&gt;")
+				if insertLineBreaks {
+					txt = strings.ReplaceAll(txt, "\n", "<br/>\n")
+				}
 				out.WriteString(txt)
 				out.WriteString("</span>\n")
 			case "link":
@@ -307,7 +320,7 @@ func processChannelMessage(out *os.File, msg *gabs.Container) (err error) {
 			e1 := blockele.Search("elements")
 			if e1 != nil {
 				//fmt.Printf("e1: %s\n", e1.String())
-				if err = processElements(out, e1); err != nil {
+				if err = processElements(out, e1, true); err != nil {
 					log.Fatal(err)
 				}
 			} else {
