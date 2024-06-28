@@ -175,15 +175,15 @@ func formatUsername(userId string) (name string) {
 	return
 }
 
-/// Recursively process the elements of a message.
-func processElements(out *os.File, e2 *gabs.Container) (err error) {
-	for _, ele := range e2.Children() {
+/// Recursively process a message's elements array.
+func processElements(out *os.File, elementsArray *gabs.Container) (err error) {
+	for _, ele := range elementsArray.Children() {
 		//fmt.Printf("ele: %s\n", ele.String())
 
-		e3 := ele.Search("elements")
-		if e3 != nil {
+		childElements := ele.Search("elements")
+		if childElements != nil {
 			// Recurse down
-			processElements(out, e3)
+			processElements(out, childElements)
 		} else {
 			eleType := ele.Search("type").Data().(string)
 			switch eleType {
@@ -199,19 +199,6 @@ func processElements(out *os.File, e2 *gabs.Container) (err error) {
 				txt = strings.ReplaceAll(txt, "\n", "<br/>\n")
 				out.WriteString(txt)
 				out.WriteString("</span>\n")
-			case "rich_text_section":
-				e3 := ele.Search("elements")
-				if e3 != nil {
-					processElements(out, e3)
-				} else if ele.Search("text") != nil {
-					out.WriteString("<span class='msgText'>")
-					txt := ele.Search("text").Data().(string)
-					txt = strings.ReplaceAll(txt, "\n", "<br/>\n")
-					out.WriteString(txt)
-					out.WriteString("</span>\n")
-				} else {
-					log.Println("DONT KNOW WHAT TO DO: block.elements " + eleType + " " + ele.String())
-				}
 			case "link":
 				out.WriteString("<span class='msgLink'>")
 				out.WriteString("<a href='")
@@ -229,12 +216,15 @@ func processElements(out *os.File, e2 *gabs.Container) (err error) {
 				}
 				out.WriteString("</span>\n")
 			case "user":
-				out.WriteString("<span class='msgText'>")
+				out.WriteString("<span class='user'>")
 				userId := ele.Search("user_id").Data().(string)
 				out.WriteString("@" + formatUsername(userId))
 				out.WriteString("</span>\n")
 			case "broadcast":
-				// ignore
+				out.WriteString("<span class='user'>")
+				broadcastRange := ele.Search("range").Data().(string)
+				out.WriteString("@" + broadcastRange)
+				out.WriteString("</span>\n")				
 			default:
 				log.Println("DONT KNOW WHAT TO DO: block.elements " + eleType + " " + ele.String())
 			}
@@ -298,14 +288,14 @@ func processChannelMessage(out *os.File, msg *gabs.Container) (err error) {
 			eleSubtype = msg.Search("subtype").Data().(string)
 		}
 		if eleType == "message" && eleSubtype == "channel_join" {
-			out.WriteString("<div class='msgText'>")
+			out.WriteString("<div class='msgText'><em>")
 			out.WriteString(formatUsername(userId))
 			out.WriteString(" has joined the channel")
-			out.WriteString("</div>")
+			out.WriteString("</em></div>")
 		} else if eleType == "message" && eleSubtype == "channel_purpose" {
-			out.WriteString("<div class='msgText'>")
+			out.WriteString("<div class='msgText'><em>")
 			out.WriteString(msg.Search("text").Data().(string))
-			out.WriteString("</div>")
+			out.WriteString("</em></div>")
 		} else {
 			out.WriteString("<div class='msgText'>")
 			out.WriteString(msg.Search("text").Data().(string))
