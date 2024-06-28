@@ -3,7 +3,7 @@ package main
 import (
 	"errors"
 	"flag"
-	"fmt"
+	// "fmt"
 	"github.com/Jeffail/gabs/v2"
 	"io"
 	"io/fs"
@@ -175,6 +175,74 @@ func formatUsername(userId string) (name string) {
 	return
 }
 
+/// Recursively process the elements of a message.
+func processElements(out *os.File, e2 *gabs.Container) (err error) {
+	for _, ele := range e2.Children() {
+		//fmt.Printf("ele: %s\n", ele.String())
+
+		e3 := ele.Search("elements")
+		if e3 != nil {
+			// Recurse down
+			processElements(out, e3)
+		} else {
+			eleType := ele.Search("type").Data().(string)
+			switch eleType {
+			case "channel": // ignore
+				out.WriteString("<span class='msgText'>")
+				out.WriteString("#")
+				channelId := ele.Search("channel_id").Data().(string)
+				out.WriteString(channels[channelId])
+				out.WriteString("</span>\n")
+			case "text":
+				out.WriteString("<span class='msgText'>")
+				txt := ele.Search("text").Data().(string)
+				txt = strings.ReplaceAll(txt, "\n", "<br/>\n")
+				out.WriteString(txt)
+				out.WriteString("</span>\n")
+			case "rich_text_section":
+				e3 := ele.Search("elements")
+				if e3 != nil {
+					processElements(out, e3)
+				} else if ele.Search("text") != nil {
+					out.WriteString("<span class='msgText'>")
+					txt := ele.Search("text").Data().(string)
+					txt = strings.ReplaceAll(txt, "\n", "<br/>\n")
+					out.WriteString(txt)
+					out.WriteString("</span>\n")
+				} else {
+					log.Println("DONT KNOW WHAT TO DO: block.elements " + eleType + " " + ele.String())
+				}
+			case "link":
+				out.WriteString("<span class='msgLink'>")
+				out.WriteString("<a href='")
+				out.WriteString(ele.Search("url").Data().(string))
+				out.WriteString("'>")
+				out.WriteString(ele.Search("url").Data().(string))
+				out.WriteString("</a>")
+				out.WriteString("</span>\n")
+			case "emoji":
+				out.WriteString("<span class='msgText'>")
+				if ele.Search("unicode") != nil {
+					out.WriteString("&#x" + ele.Search("unicode").Data().(string))
+				} else {
+					out.WriteString(":" + ele.Search("name").Data().(string) + ":")
+				}
+				out.WriteString("</span>\n")
+			case "user":
+				out.WriteString("<span class='msgText'>")
+				userId := ele.Search("user_id").Data().(string)
+				out.WriteString("@" + formatUsername(userId))
+				out.WriteString("</span>\n")
+			case "broadcast":
+				// ignore
+			default:
+				log.Println("DONT KNOW WHAT TO DO: block.elements " + eleType + " " + ele.String())
+			}
+		}
+	}
+	return
+}
+
 func processChannelMessage(out *os.File, msg *gabs.Container) (err error) {
 	var userId string
 	var botId string
@@ -249,55 +317,18 @@ func processChannelMessage(out *os.File, msg *gabs.Container) (err error) {
 			e1 := blockele.Search("elements")
 			if e1 != nil {
 				//fmt.Printf("e1: %s\n", e1.String())
-				for _, e1ele := range e1.Children() {
-					e2 := e1ele.Search("elements")
-					if e2 != nil {
-						//fmt.Printf("e2: %s\n", e2.String())
-
-						for _, ele := range e2.Children() {
-							//fmt.Printf("ele: %s\n", ele.String())
-
-							eleType := ele.Search("type").Data().(string)
-							switch eleType {
-							case "channel": // ignore
-								out.WriteString("<span class='msgText'>")
-								out.WriteString("#")
-								channelId := ele.Search("channel_id").Data().(string)
-								out.WriteString(channels[channelId])
-								out.WriteString("</span>\n")
-							case "text":
-								out.WriteString("<span class='msgText'>")
-								txt := ele.Search("text").Data().(string)
-								txt = strings.ReplaceAll(txt, "\n", "<br/>\n")
-								out.WriteString(txt)
-								out.WriteString("</span>\n")
-							case "link":
-								out.WriteString("<span class='msgLink'>")
-								out.WriteString("<a href='")
-								out.WriteString(ele.Search("url").Data().(string))
-								out.WriteString("'>")
-								out.WriteString(ele.Search("url").Data().(string))
-								out.WriteString("</a>")
-								out.WriteString("</span>\n")
-							case "emoji":
-								out.WriteString("<span class='msgText'>")
-								out.WriteString("&#x" + ele.Search("unicode").Data().(string))
-								out.WriteString("</span>\n")
-							case "user", "broadcast":
-								// ignore
-							default:
-								log.Println("DONT KNOW WHAT TO DO: block.elements " + eleType + " " + ele.String())
-							}
-						}
-					}
+				if err = processElements(out, e1); err != nil {
+					log.Fatal(err)
 				}
+			} else {
+				log.Fatal("DONT KNOW WHAT TO DO: block " + blockele.String())
 			}
 		}
 	}
 	attachments := msg.Search("attachments")
 	if attachments != nil {
 		for _, ele := range attachments.Children() {
-			fmt.Printf("attachment: %s\n", ele.String())
+			//fmt.Printf("attachment: %s\n", ele.String())
 			if ele.Search("from_url") != nil {
 				out.WriteString("<a href='")
 				out.WriteString(ele.Search("from_url").Data().(string))
