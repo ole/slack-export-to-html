@@ -176,14 +176,29 @@ func formatUsername(userId string) (name string) {
 }
 
 func processChannelMessage(out *os.File, msg *gabs.Container) (err error) {
-	userId := msg.Search("user").Data().(string)
+	var userId string
+	var botId string
+	if msg.Search("user") != nil {
+		userId = msg.Search("user").Data().(string)
+	}
+	if msg.Search("bot_id") != nil {
+		botId = msg.Search("bot_id").Data().(string)
+	}
 	ts := msg.Search("ts").Data().(string)
 
 	out.WriteString("<div class='msg'>\n")
 	out.WriteString("<div class='msgHeader'>")
-	out.WriteString("<div class='user'>")
-	out.WriteString(formatUsername(userId))
-	out.WriteString("</div>\n")
+	if userId != "" {
+		out.WriteString("<div class='user'>")
+		out.WriteString(formatUsername(userId))
+		out.WriteString("</div>\n")
+	}
+	if botId != "" {
+		out.WriteString("<div class='user'>")
+		out.WriteString("(BOT) ")
+		out.WriteString(formatUsername(botId))
+		out.WriteString("</div>\n")
+	}
 	out.WriteString("<div class='ts'>")
 	out.WriteString(tsToPrettyTime(ts))
 	out.WriteString("</div>\n")
