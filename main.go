@@ -163,8 +163,12 @@ func tsToPrettyTime(ts string) (result string) {
 	if err != nil {
 		log.Fatal(err)
 	}
+	location, err := time.LoadLocation("Europe/Berlin")
+	if err != nil {
+		log.Fatal(err)
+	}
 	unixTime := time.Unix(unixTs, 0)
-	result = unixTime.UTC().Format(time.RFC1123)
+	result = unixTime.UTC().In(location).Format(time.RFC3339)
 	return
 }
 
