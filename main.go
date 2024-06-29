@@ -241,7 +241,29 @@ func processElements(out *os.File, elementsArray *gabs.Container, wrapInTag stri
 				if insertLineBreaks {
 					txt = strings.ReplaceAll(txt, "\n", "<br/>\n")
 				}
+				var styles []string
+				style := ele.Search("style")
+				if style != nil {
+					// styleTags is a map of slack style names to HTML tags
+					styleTags := map[string]string{
+						"bold": "strong",
+						"italic": "em",
+						"code": "code",
+						"strike": "del",
+					}
+					for slackStyle, htmlTag := range styleTags {
+						if style.Search(slackStyle) != nil && style.Search(slackStyle).Data().(bool) {	
+							styles = append(styles, htmlTag)
+						}
+					}
+				}
+				for _, style := range styles {
+					out.WriteString("<" + style + ">")
+				}
 				out.WriteString(txt)
+				for _, style := range styles {
+					out.WriteString("</" + style + ">")
+				}
 				out.WriteString("</span>\n")
 			case "link":
 				out.WriteString("<span class='msgLink'>")
