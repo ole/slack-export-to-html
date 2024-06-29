@@ -180,7 +180,7 @@ func formatUsername(userId string) (name string) {
 	return
 }
 
-/// Recursively process a message's elements array.
+// Recursively process a message's elements array.
 func processElements(out *os.File, elementsArray *gabs.Container, insertLineBreaks bool) (err error) {
 	for _, ele := range elementsArray.Children() {
 		//fmt.Printf("ele: %s\n", ele.String())
@@ -242,7 +242,7 @@ func processElements(out *os.File, elementsArray *gabs.Container, insertLineBrea
 				out.WriteString("<span class='user'>")
 				broadcastRange := ele.Search("range").Data().(string)
 				out.WriteString("@" + broadcastRange)
-				out.WriteString("</span>\n")				
+				out.WriteString("</span>\n")
 			default:
 				log.Println("DONT KNOW WHAT TO DO: block.elements " + eleType + " " + ele.String())
 			}
