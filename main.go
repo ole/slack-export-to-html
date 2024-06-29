@@ -1,9 +1,10 @@
 package main
 
 import (
+	"crypto/sha1"
 	"errors"
 	"flag"
-	// "fmt"
+	"fmt"
 	"github.com/Jeffail/gabs/v2"
 	"io"
 	"io/fs"
@@ -11,6 +12,7 @@ import (
 	"net/http"
 	"os"
 	"path"
+	"regexp"
 	"sort"
 	"strconv"
 	"strings"
@@ -343,12 +345,26 @@ func processChannelMessage(out *os.File, msg *gabs.Container) (err error) {
 				out.WriteString("'>")
 			}
 			if ele.Search("image_url") != nil {
+				source_url := ele.Search("image_url").Data().(string)
+				url, err := archiveFileComputingIdFromFilename(source_url)
+				if err != nil {
+					log.Println("Error downloading '" + source_url + "': " + err.Error())
+					// Ignore error and just use the source URL
+					url = source_url
+				}
 				out.WriteString("<img src='")
-				out.WriteString(ele.Search("image_url").Data().(string))
+				out.WriteString(url)
 				out.WriteString("'></img><br>")
 			} else if ele.Search("thumb_url") != nil {
+				source_url := ele.Search("thumb_url").Data().(string)
+				url, err := archiveFileComputingIdFromFilename(source_url)
+				if err != nil {
+					log.Println("Error downloading '" + source_url + "': " + err.Error())
+					// Ignore error and just use the source URL
+					url = source_url
+				}
 				out.WriteString("<img src='")
-				out.WriteString(ele.Search("thumb_url").Data().(string))
+				out.WriteString(url)
 				out.WriteString("'></img><br>")
 			}
 			// In practice, this sometimes results in "duplicate" links -- some
@@ -371,8 +387,12 @@ func processChannelMessage(out *os.File, msg *gabs.Container) (err error) {
 				filetype := ele.Search("filetype").Data().(string)
 				name := ele.Search("name").Data().(string)
 				id := ele.Search("id").Data().(string)
-				var url string
-				url, err = archiveFile(id, filetype, ele.Search("url_private").Data().(string))
+				source_url := ele.Search("url_private").Data().(string)
+				url, err := archiveFile(id, filetype, source_url)
+				if err != nil {
+					log.Fatal("Error downloading '" + source_url + "'")
+					log.Fatal(err)
+				}
 				switch filetype {
 				case "jpg", "png", "gif":
 					out.WriteString("<img src='")
@@ -413,6 +433,46 @@ func processChannelMessage(out *os.File, msg *gabs.Container) (err error) {
 	out.WriteString("</div>\n")
 
 	return
+}
+
+func archiveFileComputingIdFromFilename(url string) (archivedUrl string, err error) {
+	filetype := url[strings.LastIndex(url, ".")+1:]
+	// If filetype is empty or contains non-alphanumeric characters,
+	// make a HEAD request and try to determine the file type from the
+	// Content-Type header.
+	if len(filetype) == 0 || !regexp.MustCompile("^[a-zA-Z0-9]+$").MatchString(filetype) {
+		log.Printf("Unknown filetype '%s', trying to determine from Content-Type", filetype)
+		var req *http.Request
+		var resp *http.Response
+		if req, err = http.NewRequest("HEAD", url, nil); err != nil {
+			return
+		}
+		client := &http.Client{}
+		if resp, err = client.Do(req); err != nil {
+			return
+		}
+		defer resp.Body.Close()
+		if resp.StatusCode != http.StatusOK {
+			err = errors.New("HEAD " + url + " status: " + resp.Status)
+			return
+		}
+		contentType := resp.Header.Get("Content-Type")
+		switch contentType {
+		case "image/jpeg":
+			filetype = "jpg"
+		case "image/png":
+			filetype = "png"
+		case "image/gif":
+			filetype = "gif"
+		default:
+			err = errors.New("Unknown content type: " + contentType)
+			return
+		}
+	}
+	// Compute a unique hash of the source_url to use as the file ID
+	sha1 := sha1.Sum([]byte(url))
+	id := fmt.Sprintf("%x", sha1)
+	return archiveFile(id, filetype, url)
 }
 
 func archiveFile(id string, filetype string, url string) (archivedUrl string, err error) {
