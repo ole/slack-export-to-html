@@ -128,6 +128,7 @@ func emitCss(out *os.File) (err error) {
 <style>
 body {
 	font-family: sans-serif;
+	padding: 1rem;
 }
 .msg {
 	margin-top: 1em;
@@ -136,7 +137,8 @@ body {
 	margin-left: 4em;
 }
 .msgHeader {
-    display: flex;
+  display: flex;
+	align-items: baseline;
 	margin-bottom: 0.5em; 
 }
 .user {
@@ -146,9 +148,8 @@ img {
 	max-width: 80%;
 }
 .ts {
-	font-style: italic;
 	font-size: smaller;
-    margin-left: 1em;
+	margin-left: 1em;
 }
 </style>
 `)
