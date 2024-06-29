@@ -146,6 +146,11 @@ body {
 .user {
 	font-weight: bold;
 }
+blockquote {
+	border-left: 3px solid #ccc;
+	margin-left: 0;
+	padding-left: 1em;
+}
 img {
 	max-width: 80%;
 }
@@ -191,15 +196,19 @@ func processElements(out *os.File, elementsArray *gabs.Container, insertLineBrea
 		childElements := ele.Search("elements")
 		if childElements != nil {
 			// Recurse down
-			var insertLineBreaksCopy = insertLineBreaks
-			if eleType == "rich_text_preformatted" {
-				out.WriteString("<pre><code>\n")
-				insertLineBreaksCopy = false
-			}
-			processElements(out, childElements, insertLineBreaksCopy)
-			if eleType == "rich_text_preformatted" {
-				out.WriteString("</pre></code>\n")
-			}
+			switch eleType {
+				case "rich_text_preformatted":
+					out.WriteString("<pre><code>\n")
+					processElements(out, childElements, false)
+					out.WriteString("</pre></code>\n")
+				case "rich_text_quote":
+					out.WriteString("<blockquote>\n")
+					processElements(out, childElements, false)
+					out.WriteString("</blockquote>\n")
+				// TODO: rich_text_list, etc.
+				default:
+					processElements(out, childElements, insertLineBreaks)
+				}
 		} else {
 			switch eleType {
 			case "channel": // ignore
