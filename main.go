@@ -336,6 +336,7 @@ func processChannelMessage(out *os.File, msg *gabs.Container) (err error) {
 		}
 	}
 	attachments := msg.Search("attachments")
+	shouldDownloadRemoteImages := false
 	if attachments != nil {
 		for _, ele := range attachments.Children() {
 			//fmt.Printf("attachment: %s\n", ele.String())
@@ -346,10 +347,16 @@ func processChannelMessage(out *os.File, msg *gabs.Container) (err error) {
 			}
 			if ele.Search("image_url") != nil {
 				source_url := ele.Search("image_url").Data().(string)
-				url, err := archiveFileComputingIdFromFilename(source_url)
-				if err != nil {
-					log.Println("Error downloading '" + source_url + "': " + err.Error())
-					// Ignore error and just use the source URL
+				var url string
+				if shouldDownloadRemoteImages {
+					var downloadError error
+					url, downloadError = archiveFileComputingIdFromFilename(source_url)
+					if downloadError != nil {
+						log.Println("Error downloading '" + source_url + "': " + downloadError.Error())
+						// Ignore error and just use the source URL
+						url = source_url
+					}
+				} else {
 					url = source_url
 				}
 				out.WriteString("<img src='")
@@ -357,10 +364,16 @@ func processChannelMessage(out *os.File, msg *gabs.Container) (err error) {
 				out.WriteString("'></img><br>")
 			} else if ele.Search("thumb_url") != nil {
 				source_url := ele.Search("thumb_url").Data().(string)
-				url, err := archiveFileComputingIdFromFilename(source_url)
-				if err != nil {
-					log.Println("Error downloading '" + source_url + "': " + err.Error())
-					// Ignore error and just use the source URL
+				var url string
+				if shouldDownloadRemoteImages {
+					var downloadError error
+					url, downloadError = archiveFileComputingIdFromFilename(source_url)
+					if downloadError != nil {
+						log.Println("Error downloading '" + source_url + "': " + downloadError.Error())
+						// Ignore error and just use the source URL
+						url = source_url
+					}
+				} else {
 					url = source_url
 				}
 				out.WriteString("<img src='")
