@@ -188,10 +188,13 @@ func formatUsername(userId string) (name string) {
 }
 
 // Recursively process a message's elements array.
-func processElements(out *os.File, elementsArray *gabs.Container, insertLineBreaks bool) (err error) {
+func processElements(out *os.File, elementsArray *gabs.Container, wrapInTag string, insertLineBreaks bool) (err error) {
 	for _, ele := range elementsArray.Children() {
 		//fmt.Printf("ele: %s\n", ele.String())
 
+		if wrapInTag != "" {
+			out.WriteString("<" + wrapInTag + ">")
+		}
 		eleType := ele.Search("type").Data().(string)
 		childElements := ele.Search("elements")
 		if childElements != nil {
@@ -199,15 +202,27 @@ func processElements(out *os.File, elementsArray *gabs.Container, insertLineBrea
 			switch eleType {
 				case "rich_text_preformatted":
 					out.WriteString("<pre><code>\n")
-					processElements(out, childElements, false)
+					processElements(out, childElements, "", false)
 					out.WriteString("</pre></code>\n")
 				case "rich_text_quote":
 					out.WriteString("<blockquote>\n")
-					processElements(out, childElements, false)
+					processElements(out, childElements, "", false)
 					out.WriteString("</blockquote>\n")
-				// TODO: rich_text_list, etc.
+				case "rich_text_list":
+					listStyle := ele.Search("style").Data().(string)
+					if listStyle == "ordered" {
+						out.WriteString("<ol>\n")
+					} else {
+						out.WriteString("<ul>\n")
+					}
+					processElements(out, childElements, "li", false)
+					if listStyle == "ordered" {
+						out.WriteString("</ol>\n")
+					} else {
+						out.WriteString("</ul>\n")
+					}
 				default:
-					processElements(out, childElements, insertLineBreaks)
+					processElements(out, childElements, "", insertLineBreaks)
 				}
 		} else {
 			switch eleType {
@@ -257,6 +272,9 @@ func processElements(out *os.File, elementsArray *gabs.Container, insertLineBrea
 			default:
 				log.Println("DONT KNOW WHAT TO DO: block.elements " + eleType + " " + ele.String())
 			}
+		}
+		if wrapInTag != "" {
+			out.WriteString("</" + wrapInTag + ">")
 		}
 	}
 	return
@@ -336,7 +354,7 @@ func processChannelMessage(out *os.File, msg *gabs.Container) (err error) {
 			e1 := blockele.Search("elements")
 			if e1 != nil {
 				//fmt.Printf("e1: %s\n", e1.String())
-				if err = processElements(out, e1, true); err != nil {
+				if err = processElements(out, e1, "", true); err != nil {
 					log.Fatal(err)
 				}
 			} else {
