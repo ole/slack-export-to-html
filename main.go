@@ -583,7 +583,7 @@ func makeTitle(channelName string) (result string) {
 }
 
 func emitHeader(out *os.File, channelName string) (err error) {
-	out.WriteString("<html><head>\n")
+	out.WriteString("<!DOCTYPE html>\n<html>\n<head>\n")
 	if emitCss(out); err != nil {
 		return
 	}
