@@ -385,7 +385,7 @@ func processChannelMessage(out *os.File, msg *gabs.Container) (err error) {
 		}
 	}
 	attachments := msg.Search("attachments")
-	shouldDownloadRemoteImages := false
+	shouldDownloadRemoteImages := true
 	if attachments != nil {
 		for _, ele := range attachments.Children() {
 			//fmt.Printf("attachment: %s\n", ele.String())
